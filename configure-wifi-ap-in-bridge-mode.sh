@@ -3,13 +3,22 @@
 #
 # Copyright 2026 Buo-ren Lin <buo.ren.lin@gmail.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
+set \
+    -o errexit \
+    -o nounset
+
 BRIDGE_INTERFACE="${BRIDGE_INTERFACE:-wifi-br0}"
 ETHERNET_INTERFACE="${ETHERNET_INTERFACE:-eth0}"
 WIFI_INTERFACE="${WIFI_INTERFACE:-wlan0}"
 WIFI_AP_SSID="${WIFI_AP_SSID:-'Bridged AP'}"
-WIFI_AP_PSK="${WIFI_AP_PSK:-''}"
+WIFI_AP_PSK="${WIFI_AP_PSK:-}"
 
-# FIXME: No privileged user checking logic
+if test "${EUID}" -ne 0; then
+    printf \
+        'Error: This program requires to be run as the superuser(root).\n' \
+        1>&2
+    exit 1
+fi
 
 if test -z "${WIFI_AP_PSK}"; then
     printf \
