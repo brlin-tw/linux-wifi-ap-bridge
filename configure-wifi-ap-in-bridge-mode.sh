@@ -7,9 +7,17 @@ BRIDGE_INTERFACE="${BRIDGE_INTERFACE:-wifi-br0}"
 WIFI_AP_SSID="${WIFI_AP_SSID:-'Bridged AP'}"
 WIFI_AP_PSK="${WIFI_AP_PSK:-}"
 
-set \
-    -o errexit \
+set_opts=(
+    -o errexit
     -o nounset
+)
+if ! set "${set_opts[@]}"; then
+    printf \
+        'Error: Unable to set shell options: %s\n' \
+        "${set_opts[*]}" \
+        1>&2
+    exit 1
+fi
 
 if test "${EUID}" -ne 0; then
     printf \
