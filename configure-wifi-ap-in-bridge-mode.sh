@@ -3,13 +3,13 @@
 #
 # Copyright 2026 Buo-ren Lin <buo.ren.lin@gmail.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
-set \
-    -o errexit \
-    -o nounset
-
 BRIDGE_INTERFACE="${BRIDGE_INTERFACE:-wifi-br0}"
 WIFI_AP_SSID="${WIFI_AP_SSID:-'Bridged AP'}"
 WIFI_AP_PSK="${WIFI_AP_PSK:-}"
+
+set \
+    -o errexit \
+    -o nounset
 
 if test "${EUID}" -ne 0; then
     printf \
