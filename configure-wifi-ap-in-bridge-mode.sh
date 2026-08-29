@@ -8,8 +8,6 @@ set \
     -o nounset
 
 BRIDGE_INTERFACE="${BRIDGE_INTERFACE:-wifi-br0}"
-ETHERNET_INTERFACE="${ETHERNET_INTERFACE:-eth0}"
-WIFI_INTERFACE="${WIFI_INTERFACE:-wlan0}"
 WIFI_AP_SSID="${WIFI_AP_SSID:-'Bridged AP'}"
 WIFI_AP_PSK="${WIFI_AP_PSK:-}"
 
@@ -28,6 +26,7 @@ if test -z "${WIFI_AP_PSK}"; then
 fi
 
 required_commands=(
+    awk
     iptables
     nmcli
 )
@@ -40,6 +39,56 @@ for command in "${required_commands[@]}"; do
         exit 1
     fi
 done
+
+if ! test -v ETHERNET_INTERFACE; then
+    printf \
+        'Info: Auto-detecting Ethernet interface...\n'
+    mapfile -t detected_ethernet_interfaces < <(
+        nmcli -t -f DEVICE,TYPE device \
+            | awk -F: '$2=="ethernet"{print $1}'
+    )
+    if test "${#detected_ethernet_interfaces[@]}" -eq 0; then
+        printf \
+            'Error: No Ethernet interface detected. Please specify ETHERNET_INTERFACE.\n' \
+            1>&2
+        exit 1
+    elif test "${#detected_ethernet_interfaces[@]}" -gt 1; then
+        printf \
+            'Error: Multiple Ethernet interfaces detected (%s). Please specify ETHERNET_INTERFACE explicitly.\n' \
+            "${detected_ethernet_interfaces[*]}" \
+            1>&2
+        exit 1
+    fi
+    ETHERNET_INTERFACE="${detected_ethernet_interfaces[0]}"
+    printf \
+        'Info: Detected Ethernet interface: %s\n' \
+        "${ETHERNET_INTERFACE}"
+fi
+
+if ! test -v WIFI_INTERFACE; then
+    printf \
+        'Info: Auto-detecting Wi-Fi interface...\n'
+    mapfile -t detected_wifi_interfaces < <(
+        nmcli -t -f DEVICE,TYPE device \
+            | awk -F: '$2=="wifi"{print $1}'
+    )
+    if test "${#detected_wifi_interfaces[@]}" -eq 0; then
+        printf \
+            'Error: No Wi-Fi interface detected. Please specify WIFI_INTERFACE.\n' \
+            1>&2
+        exit 1
+    elif test "${#detected_wifi_interfaces[@]}" -gt 1; then
+        printf \
+            'Error: Multiple Wi-Fi interfaces detected (%s). Please specify WIFI_INTERFACE explicitly.\n' \
+            "${detected_wifi_interfaces[*]}" \
+            1>&2
+        exit 1
+    fi
+    WIFI_INTERFACE="${detected_wifi_interfaces[0]}"
+    printf \
+        'Info: Detected Wi-Fi interface: %s\n' \
+        "${WIFI_INTERFACE}"
+fi
 
 bridge_con_name='Bridge for software Wi-Fi AP in bridge mode'
 ethernet_con_name='Ethernet bridge port for software Wi-Fi AP'
