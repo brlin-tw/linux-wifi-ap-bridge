@@ -112,6 +112,7 @@ if ! nmcli connection show "${wifi_con_name}" >/dev/null 2>&1; then
         "${wifi_con_name}"
     if ! nmcli connection add \
         type wifi \
+        mode ap \
         con-name "${wifi_con_name}" \
         ifname "${WIFI_INTERFACE}" \
         master "${BRIDGE_INTERFACE}" \
@@ -131,6 +132,7 @@ else
         connection.interface-name "${WIFI_INTERFACE}" \
         connection.master "${BRIDGE_INTERFACE}" \
         connection.slave-type bridge \
+        802-11-wireless.mode ap \
         802-11-wireless.ssid "${WIFI_AP_SSID}"; then
         printf \
             'Error: Unable to modify Wi-Fi AP connection "%s".\n' \
