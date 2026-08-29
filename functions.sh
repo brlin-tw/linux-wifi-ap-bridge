@@ -319,11 +319,14 @@ print_progress(){
     local -i separator_length
 
     # NOTE: COLUMNS shell variable is not available in
-    # non-noninteractive shell
-    # FIXME: This calculation is not correct for double-width characters
-    # (e.g. 中文)
-    # https://www.reddit.com/r/bash/comments/gynqa0/how_to_determine_character_width_for_special/
-    separator_length="${#progress_msg}"
+    # non-interactive shell
+    if ! separator_length="$(wc -L <<<"${progress_msg}")"; then
+        printf \
+            '%s: Error: Unable to determine the display width of the progress message.\n' \
+            "${FUNCNAME[0]}" \
+            1>&2
+        return 1
+    fi
 
     # Reduce costly I/O operations
     local separator_block_string=
