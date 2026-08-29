@@ -27,22 +27,156 @@ if test -z "${WIFI_AP_PSK}"; then
     exit 1
 fi
 
-# FIXME: No idempotent and error checking logic
-nmcli connection add type bridge con-name 'Bridge for software Wi-Fi AP in bridge mode' ifname "${BRIDGE_INTERFACE}"
+required_commands=(
+    iptables
+    nmcli
+)
+for command in "${required_commands[@]}"; do
+    if ! command -v "${command}" >/dev/null; then
+        printf \
+            'Error: This program requires the "%s" command to be available in your command search PATHs.\n' \
+            "${command}" \
+            1>&2
+        exit 1
+    fi
+done
 
-# FIXME: No idempotent and error checking logic
-nmcli connection add type bridge-slave con-name 'Ethernet bridge port for software Wi-Fi AP' ifname "${ETHERNET_INTERFACE}" master "${BRIDGE_INTERFACE}"
+bridge_con_name='Bridge for software Wi-Fi AP in bridge mode'
+ethernet_con_name='Ethernet bridge port for software Wi-Fi AP'
+wifi_con_name='Wifi AP in bridge mode'
 
-# FIXME: No idempotent and error checking logic
-nmcli connection add type wifi con-name 'Wifi AP in bridge mode' ifname "${WIFI_AP_SSID}" master wifi-br0 ssid "${WIFI_AP_SSID}"
+if ! nmcli connection show "${bridge_con_name}" >/dev/null 2>&1; then
+    printf \
+        'Info: Creating bridge connection "%s"...\n' \
+        "${bridge_con_name}"
+    if ! nmcli connection add \
+        type bridge \
+        con-name "${bridge_con_name}" \
+        ifname "${BRIDGE_INTERFACE}"; then
+        printf \
+            'Error: Unable to add bridge connection "%s".\n' \
+            "${bridge_con_name}" \
+            1>&2
+        exit 2
+    fi
+else
+    printf \
+        'Info: Bridge connection "%s" already exists, updating configuration...\n' \
+        "${bridge_con_name}"
+    if ! nmcli connection modify \
+        "${bridge_con_name}" \
+        connection.interface-name "${BRIDGE_INTERFACE}"; then
+        printf \
+            'Error: Unable to modify bridge connection "%s".\n' \
+            "${bridge_con_name}" \
+            1>&2
+        exit 2
+    fi
+fi
 
-# FIXME: No idempotent and error checking logic
-nmcli connection modify 'Wifi AP in bridge mode' wifi-sec.key-mgmt wpa-psk wifi-sec.psk "${WIFI_AP_PSK}"
+if ! nmcli connection show "${ethernet_con_name}" >/dev/null 2>&1; then
+    printf \
+        'Info: Creating Ethernet bridge port connection "%s"...\n' \
+        "${ethernet_con_name}"
+    if ! nmcli connection add \
+        type bridge-slave \
+        con-name "${ethernet_con_name}" \
+        ifname "${ETHERNET_INTERFACE}" \
+        master "${BRIDGE_INTERFACE}"; then
+        printf \
+            'Error: Unable to add Ethernet bridge port connection "%s".\n' \
+            "${ethernet_con_name}" \
+            1>&2
+        exit 2
+    fi
+else
+    printf \
+        'Info: Ethernet bridge port connection "%s" already exists, updating configuration...\n' \
+        "${ethernet_con_name}"
+    if ! nmcli connection modify \
+        "${ethernet_con_name}" \
+        connection.interface-name "${ETHERNET_INTERFACE}" \
+        connection.master "${BRIDGE_INTERFACE}" \
+        connection.slave-type bridge; then
+        printf \
+            'Error: Unable to modify Ethernet bridge port connection "%s".\n' \
+            "${ethernet_con_name}" \
+            1>&2
+        exit 2
+    fi
+fi
 
-# FIXME: No idempotent and error checking logic
-nmcli connection up 'Bridge for software Wi-Fi AP in bridge mode'
-nmcli connection up 'Ethernet bridge port for software Wi-Fi AP'
-nmcli connection up 'Wifi AP in bridge mode'
+if ! nmcli connection show "${wifi_con_name}" >/dev/null 2>&1; then
+    printf \
+        'Info: Creating Wi-Fi AP connection "%s"...\n' \
+        "${wifi_con_name}"
+    if ! nmcli connection add \
+        type wifi \
+        con-name "${wifi_con_name}" \
+        ifname "${WIFI_INTERFACE}" \
+        master "${BRIDGE_INTERFACE}" \
+        ssid "${WIFI_AP_SSID}"; then
+        printf \
+            'Error: Unable to add Wi-Fi AP connection "%s".\n' \
+            "${wifi_con_name}" \
+            1>&2
+        exit 2
+    fi
+else
+    printf \
+        'Info: Wi-Fi AP connection "%s" already exists, updating configuration...\n' \
+        "${wifi_con_name}"
+    if ! nmcli connection modify \
+        "${wifi_con_name}" \
+        connection.interface-name "${WIFI_INTERFACE}" \
+        connection.master "${BRIDGE_INTERFACE}" \
+        connection.slave-type bridge \
+        802-11-wireless.ssid "${WIFI_AP_SSID}"; then
+        printf \
+            'Error: Unable to modify Wi-Fi AP connection "%s".\n' \
+            "${wifi_con_name}" \
+            1>&2
+        exit 2
+    fi
+fi
 
-# FIXME: No idempotent and error checking logic
-iptables -P FORWARD ACCEPT
+printf \
+    'Info: Configuring security settings for Wi-Fi AP connection "%s"...\n' \
+    "${wifi_con_name}"
+if ! nmcli connection modify \
+    "${wifi_con_name}" \
+    wifi-sec.key-mgmt wpa-psk \
+    wifi-sec.psk "${WIFI_AP_PSK}"; then
+    printf \
+        'Error: Unable to configure security settings for "%s".\n' \
+        "${wifi_con_name}" \
+        1>&2
+    exit 2
+fi
+
+printf \
+    'Info: Activating connections...\n'
+for con_name in \
+    "${bridge_con_name}" \
+    "${ethernet_con_name}" \
+    "${wifi_con_name}"; do
+    if ! nmcli connection up "${con_name}"; then
+        printf \
+            'Error: Unable to activate connection "%s".\n' \
+            "${con_name}" \
+            1>&2
+        exit 2
+    fi
+done
+
+printf \
+    'Info: Configuring iptables forward policy...\n'
+if ! iptables -P FORWARD ACCEPT; then
+    printf \
+        'Error: Unable to set iptables FORWARD policy to ACCEPT.\n' \
+        1>&2
+    exit 2
+fi
+
+printf \
+    'Info: Operation completed without errors.\n'
