@@ -22,3 +22,7 @@ If you don't have the concept of Agent Skills, refer to the following instructio
 
 * Explicitly state which skills and rules are in effect.
 * Provide findings, recommendations, or code while enforcing all loaded constraints. If any conflicts arise, ask for clarification before diverging.
+
+## AI Tooling Disclosure
+
+Follow [Attribution — AI Coding Assistants — The Linux Kernel documentation](https://docs.kernel.org/process/coding-assistants.html#attribution) for AI tooling disclosure.
